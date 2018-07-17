@@ -8,11 +8,13 @@
 #include <dm.h>
 #include <fdtdec.h>
 #include <libfdt.h>
+#include <pci.h>
 #include <asm/io.h>
 #include <asm/system.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/soc.h>
 #include <asm/armv8/mmu.h>
+#include <power/regulator.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -56,7 +58,7 @@ static const void *get_memory_reg_prop(const void *fdt, int *lenp)
 	return fdt_getprop(fdt, offset, "reg", lenp);
 }
 
-int dram_init(void)
+__weak int mvebu_dram_init(void)
 {
 	const void *fdt = gd->fdt_blob;
 	const fdt32_t *val;
@@ -82,7 +84,7 @@ int dram_init(void)
 	return 0;
 }
 
-void dram_init_banksize(void)
+__weak void mvebu_dram_init_banksize(void)
 {
 	const void *fdt = gd->fdt_blob;
 	const fdt32_t *val;
@@ -116,6 +118,18 @@ void dram_init_banksize(void)
 	}
 }
 
+int dram_init(void)
+{
+	int ret;
+	ret = mvebu_dram_init();
+	return ret;
+}
+
+void dram_init_banksize(void)
+{
+	mvebu_dram_init_banksize();
+}
+
 int arch_cpu_init(void)
 {
 	/* Nothing to do (yet) */
@@ -127,6 +141,10 @@ int arch_early_init_r(void)
 	struct udevice *dev;
 	int ret;
 	int i;
+
+	/* Check if any existing regulator should be turned down */
+	if (!of_machine_is_compatible("marvell,armada3710"))
+		regulators_enable_boot_off(false);
 
 	/*
 	 * Loop over all MISC uclass drivers to call the comphy code
@@ -142,8 +160,19 @@ int arch_early_init_r(void)
 			break;
 	}
 
-	/* Cause the SATA device to do its early init */
-	uclass_first_device(UCLASS_AHCI, &dev);
+	/* Cause the SATA devices to do their early init */
+	for (uclass_first_device(UCLASS_AHCI, &dev);
+	     dev;
+	     uclass_next_device(&dev))
+		;
+
+#ifdef CONFIG_DM_PCI
+	/* Set the top of region accessible by PCI to 2GB */
+	gd->pci_ram_top = board_get_usable_ram_top(gd->ram_top);
+
+	/* Trigger PCIe devices detection */
+	pci_init();
+#endif
 
 	return 0;
 }

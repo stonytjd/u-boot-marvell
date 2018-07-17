@@ -9,6 +9,41 @@ config CMD_MVEBU_BUBT
 	  For details about bubt command please see the documentation
 	  in doc/mvebu/cmd/bubt.txt
 
+config CMD_MVEBU_HW_INFO
+	bool "hw_info"
+	select BOARD_CONFIG_EEPROM
+	default n
+	help
+	  hw_info - load HW information such as board ID, PCB SLM number,
+	  MAC addresses from EEPROM and apply them to enviroment variables.
+	  And update the MAC address in FDT file for Linux.
+	  When save the box information, it will be saved to EEPROM.
+
+config CMD_MVEBU_TSEN
+	bool "tsen"
+	depends on MVEBU_THERMAL_SENSOR
+	default y
+	help
+	  tsen - Display the SoC temperature
+	  as read from the on chip thermal sensor
+
+config CMD_MVEBU_PHY_FW_DOWNLOAD
+	bool "phy_fw_down"
+	depends on MVMDIO
+	default n
+	help
+	  phy_fw_down - This command download
+	  PHY firmware header to the PHY flash.
+	  This command is used for Marvell PHYs
+	  88X3220/88X3310
+
+config CMD_MVEBU_MCI_INDIRECT_ACCESS
+	bool "mci"
+	depends on MVEBU_MCI_INDIRECT_ACCESS
+	default y
+	help
+	  mci - Indirect access to mci registers
+
 choice
 	prompt "Flash for image"
 	default MVEBU_SPI_BOOT
@@ -33,12 +68,21 @@ config MVEBU_SPI_BOOT
 
 config MVEBU_MMC_BOOT
 	bool "eMMC flash boot"
-	depends on MVEBU_MMC
+	depends on MVEBU_MMC || MMC_SDHCI_XENON
 	help
 	  Enable boot from eMMC boot partition
 	  Allow usage of eMMC/SD device as a target for "bubt" command
 	  For details about bubt command please see the documentation
 	  in doc/mvebu/cmd/bubt.txt
+
+config MVEBU_SPINAND_BOOT
+	bool "SPINAND flash boot"
+	depends on SPI_NAND
+	help
+	  Enable boot from SPINAND flash.
+	  Allow usage of SPINAND flash as a target for "bubt" command
+	  For details about bubt command please see help information by
+	  running "help bubt" command.
 
 endchoice
 
@@ -48,5 +92,33 @@ config MVEBU_UBOOT_DFLT_NAME
 	help
 	  This option should contain a default file name to be used with
 	  MVEBU "bubt" command if the source file name is omitted
+
+config CMD_MVEBU_EFUSE
+	bool "efuse"
+	depends on TARGET_MVEBU_ARMADA_37XX
+	select MVEBU_EFUSE_SUPPORT
+	default n
+	help
+	  eFuse - allow access to SoC eFuse entries
+	  eFuse commands to support efuse list/dump/read/write
+	  For details about eFuse command please see help of eFuse
+	  in uboot
+
+config CMD_MVEBU_MG_BOOT
+	bool "mg_boot"
+	depends on TARGET_MVEBU_ARMADA_8K
+	default n
+	help
+	  mg_boot - Loads MG CM3 firmware into CM3 SRAM and releases it from
+	  reset. The MG's CM3 doesn't have hardware UART but after enabling this
+	  option UART emulation can be used and console output can be redirected
+	  to MG's CM3
+
+config CMD_MVEBU_RX_TRAINING
+	bool "rx_training"
+	depends on TARGET_MVEBU_ARMADA_8K
+	default n
+	help
+	  Perform RX training sequence
 
 endmenu

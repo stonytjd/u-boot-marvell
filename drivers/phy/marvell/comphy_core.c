@@ -12,7 +12,7 @@
 #include <linux/errno.h>
 #include <asm/io.h>
 
-#include "comphy.h"
+#include "comphy_priv.h"
 
 #define COMPHY_MAX_CHIP 4
 
@@ -21,10 +21,11 @@ DECLARE_GLOBAL_DATA_PTR;
 static char *get_speed_string(u32 speed)
 {
 	char *speed_strings[] = {"1.25 Gbps", "1.5 Gbps", "2.5 Gbps",
-				 "3.0 Gbps", "3.125 Gbps", "5 Gbps", "6 Gbps",
-				 "6.25 Gbps", "10.31 Gbps" };
+				 "3.0 Gbps", "3.125 Gbps", "5 Gbps",
+				 "5.125 Gpbs", "6 Gbps", "6.25 Gbps",
+				 "10.3125 Gbps" };
 
-	if (speed < 0 || speed > PHY_SPEED_MAX)
+	if (speed < 0 || speed > COMPHY_SPEED_MAX)
 		return "invalid";
 
 	return speed_strings[speed];
@@ -34,12 +35,12 @@ static char *get_type_string(u32 type)
 {
 	char *type_strings[] = {"UNCONNECTED", "PEX0", "PEX1", "PEX2", "PEX3",
 				"SATA0", "SATA1", "SATA2", "SATA3", "SGMII0",
-				"SGMII1", "SGMII2", "SGMII3", "QSGMII",
+				"SGMII1", "SGMII2", "SGMII3", "QSGMII", "USB3",
 				"USB3_HOST0", "USB3_HOST1", "USB3_DEVICE",
 				"XAUI0", "XAUI1", "XAUI2", "XAUI3",
-				"RXAUI0", "RXAUI1", "KR"};
+				"RXAUI0", "RXAUI1", "SFI", "AP", "IGNORE"};
 
-	if (type < 0 || type > PHY_TYPE_MAX)
+	if (type < 0 || type > COMPHY_TYPE_MAX)
 		return "invalid";
 
 	return type_strings[type];
@@ -90,10 +91,7 @@ void comphy_print(struct chip_serdes_phy_config *chip_cfg,
 
 	for (lane = 0; lane < chip_cfg->comphy_lanes_count;
 	     lane++, comphy_map_data++) {
-		if (comphy_map_data->type == PHY_TYPE_UNCONNECTED)
-			continue;
-
-		if (comphy_map_data->speed == PHY_SPEED_INVALID) {
+		if (comphy_map_data->speed == COMPHY_SPEED_INVALID) {
 			printf("Comphy-%d: %-13s\n", lane,
 			       get_type_string(comphy_map_data->type));
 		} else {
@@ -104,15 +102,25 @@ void comphy_print(struct chip_serdes_phy_config *chip_cfg,
 	}
 }
 
+int comphy_rx_training(struct udevice *dev, u32 lane)
+{
+	struct chip_serdes_phy_config *chip_cfg = dev_get_priv(dev);
+
+	if (chip_cfg->rx_training)
+		return chip_cfg->rx_training(chip_cfg, lane);
+
+	return 0;
+}
+
 static int comphy_probe(struct udevice *dev)
 {
 	const void *blob = gd->fdt_blob;
 	int node = dev_of_offset(dev);
 	struct chip_serdes_phy_config *chip_cfg = dev_get_priv(dev);
-	struct comphy_map comphy_map_data[MAX_LANE_OPTIONS];
 	int subnode;
 	int lane;
 	int last_idx = 0;
+	static int current_idx;
 
 	/* Save base addresses for later use */
 	chip_cfg->comphy_base_addr = (void *)dev_get_addr_index(dev, 0);
@@ -137,11 +145,15 @@ static int comphy_probe(struct udevice *dev)
 		return -EINVAL;
 	}
 
-	if (of_device_is_compatible(dev, "marvell,comphy-armada-3700"))
+	if (of_device_is_compatible(dev, "marvell,comphy-armada-3700")) {
 		chip_cfg->ptr_comphy_chip_init = comphy_a3700_init;
+		chip_cfg->rx_training = NULL;
+	}
 
-	if (of_device_is_compatible(dev, "marvell,comphy-cp110"))
+	if (of_device_is_compatible(dev, "marvell,comphy-cp110")) {
 		chip_cfg->ptr_comphy_chip_init = comphy_cp110_init;
+		chip_cfg->rx_training = comphy_cp110_sfi_rx_training;
+	}
 
 	/*
 	 * Bail out if no chip_init function is defined, e.g. no
@@ -158,30 +170,42 @@ static int comphy_probe(struct udevice *dev)
 		if (!fdtdec_get_is_enabled(blob, subnode))
 			continue;
 
-		comphy_map_data[lane].speed = fdtdec_get_int(
-			blob, subnode, "phy-speed", PHY_TYPE_INVALID);
-		comphy_map_data[lane].type = fdtdec_get_int(
-			blob, subnode, "phy-type", PHY_SPEED_INVALID);
-		comphy_map_data[lane].invert = fdtdec_get_int(
-			blob, subnode, "phy-invert", PHY_POLARITY_NO_INVERT);
-		comphy_map_data[lane].clk_src = fdtdec_get_bool(blob, subnode,
-								"clk-src");
-		if (comphy_map_data[lane].type == PHY_TYPE_INVALID) {
+		chip_cfg->comphy_map_data[lane].type =
+			fdtdec_get_int(blob, subnode, "phy-type",
+				       COMPHY_TYPE_INVALID);
+
+		if (chip_cfg->comphy_map_data[lane].type ==
+		    COMPHY_TYPE_INVALID) {
 			printf("no phy type for lane %d, setting lane as unconnected\n",
 			       lane + 1);
+			continue;
 		}
+
+		chip_cfg->comphy_map_data[lane].speed =
+			fdtdec_get_int(blob, subnode, "phy-speed",
+				       COMPHY_SPEED_INVALID);
+
+		chip_cfg->comphy_map_data[lane].invert =
+			fdtdec_get_int(blob, subnode, "phy-invert",
+				       COMPHY_POLARITY_NO_INVERT);
+
+		chip_cfg->comphy_map_data[lane].clk_src =
+			fdtdec_get_bool(blob, subnode, "clk-src");
+
+		chip_cfg->comphy_map_data[lane].end_point =
+			fdtdec_get_bool(blob, subnode, "end_point");
 
 		lane++;
 	}
 
-	/* Save comphy index for MultiCP devices (A8K) */
-	chip_cfg->comphy_index = dev->seq;
+	/* Save CP index for MultiCP devices (A8K) */
+	chip_cfg->cp_index = current_idx++;
 	/* PHY power UP sequence */
-	chip_cfg->ptr_comphy_chip_init(chip_cfg, comphy_map_data);
+	chip_cfg->ptr_comphy_chip_init(chip_cfg, chip_cfg->comphy_map_data);
 	/* PHY print SerDes status */
 	if (of_machine_is_compatible("marvell,armada8040"))
-		printf("Comphy chip #%d:\n", chip_cfg->comphy_index);
-	comphy_print(chip_cfg, comphy_map_data);
+		printf("Comphy chip #%d:\n", chip_cfg->cp_index);
+	comphy_print(chip_cfg, chip_cfg->comphy_map_data);
 
 	/*
 	 * Only run the dedicated PHY init code once, in the last PHY init call
@@ -189,7 +213,7 @@ static int comphy_probe(struct udevice *dev)
 	if (of_machine_is_compatible("marvell,armada8040"))
 		last_idx = 1;
 
-	if (chip_cfg->comphy_index == last_idx) {
+	if (chip_cfg->cp_index == last_idx) {
 		/* Initialize dedicated PHYs (not muxed SerDes lanes) */
 		comphy_dedicated_phys_init();
 	}

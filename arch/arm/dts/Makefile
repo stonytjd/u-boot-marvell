@@ -70,18 +70,44 @@ dtb-$(CONFIG_TEGRA) += tegra20-harmony.dtb \
 
 dtb-$(CONFIG_ARCH_MVEBU) +=			\
 	armada-3720-db.dtb			\
+	armada-3720-ddr3-db-v2-B.dtb		\
+	armada-3720-ddr3-db-v2-C.dtb		\
+	armada-3720-ddr3-db-v1-A.dtb		\
+	armada-3720-ddr3-db-v1-B.dtb		\
+	armada-3720-ddr3-db-v1-C.dtb		\
+	armada-3720-ddr4-db-v3-A.dtb		\
+	armada-3720-ddr4-db-v3-B.dtb		\
+	armada-3720-ddr4-db-v1-A.dtb		\
+	armada-3720-ddr4-db-v1-B.dtb		\
 	armada-3720-espressobin.dtb		\
 	armada-375-db.dtb			\
 	armada-388-clearfog.dtb			\
 	armada-388-gp.dtb			\
 	armada-385-amc.dtb			\
+	armada-3900-axis.dtb			\
+	armada-3900-vd.dtb			\
+	armada-3900-vd-nand.dtb			\
+	armada-7020-amc.dtb			\
+	armada-7020-comexpress.dtb		\
 	armada-7040-db.dtb			\
+	armada-7040-db-B.dtb			\
+	armada-7040-db-C.dtb                    \
+	armada-7040-db-D.dtb			\
+	armada-7040-db-E.dtb			\
+	armada-7040-pcac.dtb	                \
+	armada-7040-db-nand.dtb			\
 	armada-8040-db.dtb			\
+	armada-8040-db-B.dtb			\
+	armada-8040-db-C.dtb			\
+	armada-8040-db-D.dtb			\
+	armada-8040-db-E.dtb			\
+	armada-8040-db-F.dtb			\
 	armada-8040-mcbin.dtb			\
 	armada-xp-gp.dtb			\
 	armada-xp-maxbcm.dtb			\
 	armada-xp-synology-ds414.dtb		\
-	armada-xp-theadorable.dtb
+	armada-xp-theadorable.dtb		\
+	armada-8040-ocp.dtb
 
 dtb-$(CONFIG_ARCH_UNIPHIER_LD11) += \
 	uniphier-ld11-ref.dtb

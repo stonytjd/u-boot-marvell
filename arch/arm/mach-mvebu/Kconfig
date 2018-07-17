@@ -42,6 +42,7 @@ config ARMADA_3700
 config ARMADA_8K
 	bool
 	select ARM64
+	select HAVE_MVEBU_EFUSE
 
 # Armada PLL frequency (used for NAND clock generation)
 config SYS_MVEBU_PLL_CLOCK
@@ -151,23 +152,6 @@ config SYS_VENDOR
 config SYS_SOC
 	default "mvebu"
 
-config MVEBU_EFUSE
-	bool "Enable eFuse support"
-	default n
-	depends on HAVE_MVEBU_EFUSE
-	help
-	  Enable support for reading and writing eFuses on mvebu SoCs.
-
-config MVEBU_EFUSE_FAKE
-	bool "Fake eFuse access (dry run)"
-	default n
-	depends on MVEBU_EFUSE
-	help
-	  This enables a "dry run" mode where eFuses are not really programmed.
-	  Instead the eFuse accesses are emulated by writing to and reading
-	  from a memory block.
-	  This is can be used for testing prog scripts.
-
 config SECURED_MODE_IMAGE
 	bool "Build image for trusted boot"
 	default false
@@ -180,5 +164,17 @@ config SECURED_MODE_CSK_INDEX
 	int "Index of active CSK"
 	default 0
 	depends on SECURED_MODE_IMAGE
+
+config MVEBU_SYS_INFO
+	bool "System info transmitted to u-boot"
+	default n
+	help
+	  Choose this option to add support
+	  for system information in u-boot.
+	  If you want to transfer information
+	  from spl to u-boot, you need to choose
+	  this option.
+
+source "arch/arm/mach-mvebu/armada3700/Kconfig"
 
 endif

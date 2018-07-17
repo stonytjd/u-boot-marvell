@@ -49,8 +49,8 @@
 #include "armada-372x.dtsi"
 
 / {
-	model = "Marvell Armada 3720 Development Board DB-88F3720-DDR3";
-	compatible = "marvell,armada-3720-db", "marvell,armada3720", "marvell,armada3710";
+	model = "Marvell Armada 3720 Development Board DB-88F3720-DDR3-V2";
+	compatible = "marvell,armada-3720-db-v2", "marvell,armada3720", "marvell,armada3710";
 
 	chosen {
 		stdout-path = "serial0:115200n8";
@@ -66,36 +66,97 @@
 		device_type = "memory";
 		reg = <0x00000000 0x00000000 0x00000000 0x20000000>;
 	};
+
+	regulator_sata_power: sata-power-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "sata-power";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		startup-delay-us = <200000>;
+		gpio = <&expander0 2 GPIO_ACTIVE_HIGH>;
+	};
+
+	reg_usb3_vbus: usb3_vbus@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb3-vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		shutdown-delay-us = <1000000>;
+		gpio = <&expander0 1 GPIO_ACTIVE_HIGH>;
+	};
+
+	vcc_sd_reg0: regulator@0 {
+		compatible = "regulator-gpio";
+		regulator-name = "vcc_sd0";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-type = "voltage";
+		states = <1800000 0x1
+			  3300000 0x0>;
+		gpios = <&gpiosb 23 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&mdio {
+	ethphy0: ethernet-phy@0 {
+		reg = <0>;
+	};
 };
 
 &comphy {
 	phy0 {
-		phy-type = <PHY_TYPE_PEX0>;
-		phy-speed = <PHY_SPEED_2_5G>;
+		phy-type = <COMPHY_TYPE_USB3>;
+		phy-speed = <COMPHY_SPEED_5G>;
 	};
 
 	phy1 {
-		phy-type = <PHY_TYPE_USB3_HOST0>;
-		phy-speed = <PHY_SPEED_5G>;
+		phy-type = <COMPHY_TYPE_PEX0>;
+		phy-speed = <COMPHY_SPEED_2_5G>;
+	};
+
+	phy2 {
+		phy-type = <COMPHY_TYPE_SATA0>;
+		phy-speed = <COMPHY_SPEED_6G>;
+		phy-invert = <COMPHY_POLARITY_NO_INVERT>;
 	};
 };
 
 &eth0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rgmii_pins>, <&smi_pins>;
 	status = "okay";
 	phy-mode = "rgmii";
+	phy = <&ethphy0>;
 };
 
 &i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+	expander0: pca953x@22 {
+		compatible = "nxp,pca9555";
+                #gpio-cells = <2>;
+		reg = <0x22>;
+		status = "okay";
+	};
+};
+
+&scsi {
 	status = "okay";
 };
 
 /* CON3 */
 &sata {
+	power-supply = <&regulator_sata_power>;
 	status = "okay";
 };
 
 &sdhci0 {
 	bus-width = <4>;
+	vqmmc-supply = <&vcc_sd_reg0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&sdio_pins>;
 	status = "okay";
 };
 
@@ -105,6 +166,8 @@
 	mmc-ddr-1_8v;
 	mmc-hs400-1_8v;
 	marvell,pad-type = "fixed-1-8v";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc_pins>;
 	status = "okay";
 
 	#address-cells = <1>;
@@ -117,6 +180,8 @@
 
 &spi0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi_quad_pins>;
 
 	spi-flash@0 {
 		#address-cells = <1>;
@@ -124,12 +189,22 @@
 		compatible = "st,m25p128", "spi-flash";
 		reg = <0>; /* Chip select 0 */
 		spi-max-frequency = <50000000>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
 		m25p,fast-read;
 	};
 };
 
 /* Exported on the micro USB connector CON32 through an FTDI */
 &uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_pins>;
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_pins>;
 	status = "okay";
 };
 
@@ -140,5 +215,14 @@
 
 /* CON31 */
 &usb3 {
+	vbus-supply = <&reg_usb3_vbus>;
+	status = "okay";
+};
+
+/* CON17 */
+&pcie0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie_pins>;
+	reset-gpio = <&gpiosb 3 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };

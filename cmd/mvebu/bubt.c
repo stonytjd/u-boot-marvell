@@ -21,6 +21,9 @@
 #ifdef CONFIG_BLK
 #include <blk.h>
 #endif
+#ifdef CONFIG_SPI_NAND
+#include <spi-nand.h>
+#endif
 #include <u-boot/sha1.h>
 #include <u-boot/sha256.h>
 
@@ -118,6 +121,9 @@ static int mmc_burn_image(size_t image_size)
 	lbaint_t	blk_count;
 	ulong		blk_written;
 	int		err;
+#ifdef CONFIG_SYS_MMC_ENV_PART
+	uint		curernt_part;
+#endif
 	const u8	mmc_dev_num = CONFIG_SYS_MMC_ENV_DEV;
 #ifdef CONFIG_BLK
 	struct blk_desc *blk_desc;
@@ -136,8 +142,9 @@ static int mmc_burn_image(size_t image_size)
 	}
 
 #ifdef CONFIG_SYS_MMC_ENV_PART
-	if (mmc->part_num != CONFIG_SYS_MMC_ENV_PART) {
-		err = mmc_switch_part(mmc_dev_num, CONFIG_SYS_MMC_ENV_PART);
+	curernt_part = mmc->part_config & PART_ACCESS_MASK;
+	if (curernt_part != CONFIG_SYS_MMC_ENV_PART) {
+		err = mmc_switch_part(mmc, CONFIG_SYS_MMC_ENV_PART);
 		if (err) {
 			printf("MMC partition switch failed\n");
 			return err;
@@ -177,8 +184,8 @@ static int mmc_burn_image(size_t image_size)
 	printf("Done!\n");
 
 #ifdef CONFIG_SYS_MMC_ENV_PART
-	if (mmc->part_num != CONFIG_SYS_MMC_ENV_PART)
-		mmc_switch_part(mmc_dev_num, mmc->part_num);
+	if (curernt_part != CONFIG_SYS_MMC_ENV_PART)
+		mmc_switch_part(mmc, curernt_part);
 #endif
 
 	return 0;
@@ -246,7 +253,6 @@ static int spi_burn_image(size_t image_size)
 {
 	int ret;
 	struct spi_flash *flash;
-	u32 erase_bytes;
 
 	/* Probe the SPI bus to get the flash device */
 	flash = spi_flash_probe(CONFIG_ENV_SPI_BUS,
@@ -261,19 +267,8 @@ static int spi_burn_image(size_t image_size)
 #ifdef CONFIG_SPI_FLASH_PROTECTION
 	spi_flash_protect(flash, 0);
 #endif
-	erase_bytes = image_size +
-		(flash->erase_size - image_size % flash->erase_size);
-	printf("Erasing %d bytes (%d blocks) at offset 0 ...",
-	       erase_bytes, erase_bytes / flash->erase_size);
-	ret = spi_flash_erase(flash, 0, erase_bytes);
-	if (ret)
-		printf("Error!\n");
-	else
-		printf("Done!\n");
 
-	printf("Writing %d bytes from 0x%lx to offset 0 ...",
-	       (int)image_size, get_load_addr());
-	ret = spi_flash_write(flash, 0, image_size, (void *)get_load_addr());
+	ret = spi_flash_update(flash, 0, image_size, (void *)get_load_addr());
 	if (ret)
 		printf("Error!\n");
 	else
@@ -309,16 +304,17 @@ static int is_spi_active(void)
 #ifdef CONFIG_CMD_NAND
 static int nand_burn_image(size_t image_size)
 {
-	int ret, block_size;
-	nand_info_t *nand;
+	int ret;
+	uint32_t block_size;
+	struct mtd_info *nand;
 	int dev = nand_curr_device;
 
 	if ((dev < 0) || (dev >= CONFIG_SYS_MAX_NAND_DEVICE) ||
-	    (!nand_info[dev].name)) {
+	    (!nand_info[dev]->name)) {
 		puts("\nno devices available\n");
 		return -ENOMEDIUM;
 	}
-	nand = &nand_info[dev];
+	nand = nand_info[dev];
 	block_size = nand->erasesize;
 
 	/* Align U-Boot size to currently used blocksize */
@@ -334,8 +330,8 @@ static int nand_burn_image(size_t image_size)
 	printf("Done!\n");
 
 	/* Write the image to flash */
-	printf("Writing image:...");
-	printf("&image_size = 0x%p\n", (void *)&image_size);
+	printf("Writing %d bytes from 0x%lx to offset 0 ... ",
+	       (int)image_size, get_load_addr());
 	ret = nand_write(nand, 0, &image_size, (void *)get_load_addr());
 	if (ret)
 		printf("Error!\n");
@@ -381,7 +377,8 @@ static size_t usb_read_file(const char *file_name)
 	}
 
 	/* Try to recognize storage devices immediately */
-	blk_first_device(IF_TYPE_USB, &dev);
+	/* Default get the number '0' usb device */
+	blk_get_device(IF_TYPE_USB, 0, &dev);
 	if (!dev) {
 		printf("Error: USB storage device not found\n");
 		return 0;
@@ -424,9 +421,15 @@ static int is_usb_active(void)
 #ifdef CONFIG_CMD_NET
 static size_t tftp_read_file(const char *file_name)
 {
+	int rc;
+
 	/* update global variable load_addr before tftp file from network */
 	load_addr = get_load_addr();
-	return net_loop(TFTPGET);
+	rc = net_loop(TFTPGET);
+	if (rc <= 0)
+		return 0;
+	else
+		return rc;
 }
 
 static int is_tftp_active(void)
@@ -446,12 +449,69 @@ static int is_tftp_active(void)
 }
 #endif /* CONFIG_CMD_NET */
 
+/********************************************************************
+ *     SPI NAND services
+ ********************************************************************/
+#ifdef CONFIG_SPI_NAND
+static int spi_nand_burn_image(size_t image_size)
+{
+	int ret;
+	struct spi_nand_chip *chip;
+
+	chip = spi_nand_flash_probe(CONFIG_ENV_SPI_BUS,
+				    CONFIG_ENV_SPI_CS,
+				    CONFIG_SF_DEFAULT_SPEED,
+				    CONFIG_SF_DEFAULT_MODE);
+	if (!chip) {
+		printf("Failed to initialize SPI NAND flash at %u:%u\n",
+		       CONFIG_SF_DEFAULT_BUS, CONFIG_SF_DEFAULT_CS);
+		return -ENOMEDIUM;
+	}
+
+	/* Align U-Boot size to currently used blocksize */
+	image_size = ((image_size + (chip->block_size - 1)) &
+		      (~(chip->block_size-1)));
+
+	/* Erase the U-BOOT image space */
+	printf("Erasing 0x%x - 0x%x:...", 0, (int)image_size);
+	ret = spi_nand_cmd_erase_ops(chip, 0, image_size, true);
+	if (ret) {
+		printf("Error!\n");
+		goto error;
+	}
+	printf("Done!\n");
+
+	/* Write the image to flash */
+	printf("Writing image:...");
+	printf("image_size = 0x%lx\n", image_size);
+	ret = spi_nand_cmd_write_ops(chip, 0, image_size,
+				     (void *)get_load_addr());
+	if (ret)
+		printf("Error!\n");
+	else
+		printf("Done!\n");
+
+error:
+	return ret;
+}
+
+int is_spi_nand_active(void)
+{
+	return 1;
+}
+
+#else
+#define spi_nand_burn_image	0
+#define is_spi_nand_active	0
+#endif /* CONFIG_SPI_NAND */
+
 enum bubt_devices {
 	BUBT_DEV_NET = 0,
 	BUBT_DEV_USB,
 	BUBT_DEV_MMC,
 	BUBT_DEV_SPI,
 	BUBT_DEV_NAND,
+	BUBT_DEV_SPI_NAND,
 
 	BUBT_MAX_DEV
 };
@@ -462,6 +522,7 @@ struct bubt_dev bubt_devs[BUBT_MAX_DEV] = {
 	{"mmc",  mmc_read_file,  mmc_burn_image, is_mmc_active},
 	{"spi",  NULL, spi_burn_image,  is_spi_active},
 	{"nand", NULL, nand_burn_image, is_nand_active},
+	{"spinand", NULL, spi_nand_burn_image, is_spi_nand_active}
 };
 
 static int bubt_write_file(struct bubt_dev *dst, size_t image_size)
@@ -699,7 +760,9 @@ struct bubt_dev *find_bubt_dev(char *dev_name)
 #define DEFAULT_BUBT_DST "nand"
 #elif defined(CONFIG_MVEBU_MMC_BOOT)
 #define DEFAULT_BUBT_DST "mmc"
-else
+#elif defined(CONFIG_MVEBU_SPINAND_BOOT)
+#define DEFAULT_BUBT_DST "spinand"
+#else
 #define DEFAULT_BUBT_DST "error"
 #endif
 #endif /* DEFAULT_BUBT_DST */
@@ -776,7 +839,7 @@ U_BOOT_CMD(
 	"Burn a u-boot image to flash",
 	"[file-name] [destination [source]]\n"
 	"\t-file-name     The image file name to burn. Default = flash-image.bin\n"
-	"\t-destination   Flash to burn to [spi, nand, mmc]. Default = active boot device\n"
+	"\t-destination   Flash to burn to [spi, nand, mmc, spinand]. Default = active boot device\n"
 	"\t-source        The source to load image from [tftp, usb, mmc]. Default = tftp\n"
 	"Examples:\n"
 	"\tbubt - Burn flash-image.bin from tftp to active boot device\n"

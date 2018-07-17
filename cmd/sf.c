@@ -124,7 +124,7 @@ static int do_spi_flash_probe(int argc, char * const argv[])
 	/* Remove the old device, otherwise probe will just be a nop */
 	ret = spi_find_bus_and_cs(bus, cs, &bus_dev, &new);
 	if (!ret) {
-		device_remove(new);
+		device_remove(new, DM_REMOVE_NORMAL);
 	}
 	flash = NULL;
 	ret = spi_flash_probe_bus_cs(bus, cs, speed, mode, &new);
@@ -209,7 +209,7 @@ static const char *spi_flash_update_block(struct spi_flash *flash, u32 offset,
  * @param buf		buffer to write from
  * @return 0 if ok, 1 on error
  */
-static int spi_flash_update(struct spi_flash *flash, u32 offset,
+int spi_flash_update(struct spi_flash *flash, u32 offset,
 		size_t len, const char *buf)
 {
 	const char *err_oper = NULL;

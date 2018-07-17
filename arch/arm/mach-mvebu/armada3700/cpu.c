@@ -13,6 +13,8 @@
 #include <asm/arch/cpu.h>
 #include <asm/arch/soc.h>
 #include <asm/armv8/mmu.h>
+#include <mach/clock.h>
+#include <mach/system_info.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -42,6 +44,14 @@ static struct mm_region mvebu_mem_map[] = {
 		.phys = 0xd0000000UL,
 		.virt = 0xd0000000UL,
 		.size = 0x02000000UL,	/* 32MiB internal registers */
+		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+			 PTE_BLOCK_NON_SHARE
+	},
+	{
+		/* PCI regions */
+		.phys = 0xe8000000UL,
+		.virt = 0xe8000000UL,
+		.size = 0x02000000UL,	/* 32MiB master PCI space */
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE
 	},
@@ -78,4 +88,45 @@ u32 get_ref_clk(void)
 		return 25;
 	else
 		return 40;
+}
+
+#if defined(CONFIG_DISPLAY_CPUINFO)
+int print_cpuinfo(void)
+{
+	soc_print_clock_info();
+
+	return 0;
+}
+#endif
+
+int mvebu_dram_init(void)
+{
+	u32 i;
+
+	gd->ram_size = 0;
+
+	/* DDR size has been passed to u-boot from ATF. */
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if (get_info(CPU_DEC_WIN0_SIZE + i) != 0)
+			gd->ram_size += get_info(CPU_DEC_WIN0_SIZE + i);
+	}
+	if (gd->ram_size == 0) {
+		error("No DRAM banks detected");
+		return 1;
+	}
+	return 0;
+}
+
+void mvebu_dram_init_banksize(void)
+{
+	u32 i;
+
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		if (get_info(CPU_DEC_WIN0_SIZE + i) != 0) {
+			gd->bd->bi_dram[i].start =
+				get_info(CPU_DEC_WIN0_BASE + i);
+			gd->bd->bi_dram[i].size =
+				get_info(CPU_DEC_WIN0_SIZE + i);
+		}
+	}
 }

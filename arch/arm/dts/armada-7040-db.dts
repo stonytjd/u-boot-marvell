@@ -42,9 +42,10 @@
 
 /*
  * Device Tree file for Marvell Armada 7040 Development board platform
+ * Boot device: SPI NOR, 0x32 (SW3)
  */
 
-#include "armada-7040.dtsi"
+#include "armada-70x0-db.dtsi"
 
 / {
 	model = "Marvell Armada 7040 DB board";
@@ -58,12 +59,19 @@
 	aliases {
 		i2c0 = &cpm_i2c0;
 		spi0 = &cpm_spi1;
+		fuse0 = &ap_hd_efuse0;
+		fuse1 = &ap_ld_efuse0;
+		fuse2 = &ap_ld_efuse1;
+		fuse3 = &cpm_ld_efuse0;
+		fuse4 = &cpm_ld_efuse1;
 	};
 
 	memory@00000000 {
 		device_type = "memory";
 		reg = <0x0 0x0 0x0 0x80000000>;
 	};
+
+
 };
 
 &ap_pinctl {
@@ -80,6 +88,17 @@
 	status = "okay";
 };
 
+&ap_hd_efuse0 {
+	status = "okay";
+};
+
+&ap_ld_efuse0 {
+	status = "okay";
+};
+
+&ap_ld_efuse1 {
+	status = "okay";
+};
 
 &cpm_pcie2 {
 	status = "okay";
@@ -94,24 +113,24 @@
 
 &cpm_pinctl {
 		/* MPP Bus:
-		 * TDM	 [0-11]
 		 * SPI   [13-16]
 		 * SATA1 [28]
 		 * UART0 [29-30]
 		 * SMI	 [32,34]
 		 * XSMI  [35-36]
 		 * I2C	 [37-38]
-		 * RGMII1[44-55]
-		 * SD	 [56-62]
+		 * RGMII [44-55]
+		 * SD	 [56-61]
+		 * GPIO  [62]
 		 */
 		/*   0   1   2   3   4   5   6   7   8   9 */
-	pin-func = < 4   4   4   4   4   4   4   4   4   4
-		     4   4   0   3   3   3   3   0   0   0
+	pin-func = < 0   0   0   0   0   0   0   0   0   0
+		     0   0   0   3   3   3   3   0   0   0
 		     0   0   0   0   0   0   0   0   9   0xA
 		     0xA 0   7   0   7   7   7   2   2   0
 		     0   0   0   0   1   1   1   1   1   1
-		     1   1   1   1   1   1   0xE 0xE 0xE 0xE
-		     0xE 0xE 0xE >;
+                     1   1   1   1   1   1   0xE 0xE 0xE 0xE
+		     0xE 0xE 0>;
 };
 
 &cpm_spi1 {
@@ -144,7 +163,19 @@
 	};
 };
 
+&cpm_ld_efuse0 {
+	status = "okay";
+};
+
+&cpm_ld_efuse1 {
+	status = "okay";
+};
+
 &cpm_sata0 {
+	status = "okay";
+};
+
+&cpm_scsi {
 	status = "okay";
 };
 
@@ -153,38 +184,39 @@
 };
 
 &cpm_usb3_1 {
+
 	status = "okay";
 };
 
 &cpm_comphy {
 	phy0 {
-		phy-type = <PHY_TYPE_SGMII2>;
-		phy-speed = <PHY_SPEED_3_125G>;
+		phy-type = <COMPHY_TYPE_SGMII1>;
+		phy-speed = <COMPHY_SPEED_1_25G>;
 	};
 
 	phy1 {
-		phy-type = <PHY_TYPE_USB3_HOST0>;
-		phy-speed = <PHY_SPEED_5G>;
+		phy-type = <COMPHY_TYPE_USB3_HOST0>;
+		phy-speed = <COMPHY_SPEED_5G>;
 	};
 
 	phy2 {
-		phy-type = <PHY_TYPE_SGMII0>;
-		phy-speed = <PHY_SPEED_1_25G>;
+		phy-type = <COMPHY_TYPE_SFI>;
+		phy-speed = <COMPHY_SPEED_10_3125G>;
 	};
 
 	phy3 {
-		phy-type = <PHY_TYPE_SATA1>;
-		phy-speed = <PHY_SPEED_5G>;
+		phy-type = <COMPHY_TYPE_SATA1>;
+		phy-speed = <COMPHY_SPEED_5G>;
 	};
 
 	phy4 {
-		phy-type = <PHY_TYPE_USB3_HOST1>;
-		phy-speed = <PHY_SPEED_5G>;
+		phy-type = <COMPHY_TYPE_USB3_HOST1>;
+		phy-speed = <COMPHY_SPEED_5G>;
 	};
 
 	phy5 {
-		phy-type = <PHY_TYPE_PEX2>;
-		phy-speed = <PHY_SPEED_5G>;
+		phy-type = <COMPHY_TYPE_PEX2>;
+		phy-speed = <COMPHY_SPEED_5G>;
 	};
 };
 
@@ -208,4 +240,35 @@
 	bus-width = <4>;
 	no-1-8-v;
 	non-removable;
+};
+
+&cpm_mdio {
+	status = "okay";
+	phy0: ethernet-phy@0 {
+		reg = <0>;
+	};
+	phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&cpm_ethernet {
+	status = "okay";
+};
+
+&cpm_eth0 {
+	status = "okay";
+	phy-mode = "sfi"; /* lane-2 */
+};
+
+&cpm_eth1 {
+	status = "okay";
+	phy = <&phy0>;
+	phy-mode = "sgmii"; /* lane-0 */
+};
+
+&cpm_eth2 {
+	status = "okay";
+	phy = <&phy1>;
+	phy-mode = "rgmii-id";
 };

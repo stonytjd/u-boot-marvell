@@ -120,6 +120,13 @@ comment "Commands"
 
 menu "Info commands"
 
+config CMD_MVEBU_SAR
+	bool "sar"
+	depends on MVEBU_SAR
+	default n
+	help
+	  sar - Modify SOC's sample at reset (SAR) values
+
 config CMD_BDI
 	bool "bdinfo"
 	default y
@@ -453,6 +460,11 @@ config CMD_SF
 	help
 	  SPI Flash support
 
+config CMD_SPI_NAND
+	bool "spi nand"
+	help
+	  SPI nand utility command.
+
 config CMD_SPI
 	bool "sspi"
 	help
@@ -496,6 +508,11 @@ config CMD_GPIO
 	bool "gpio"
 	help
 	  GPIO support.
+
+config CMD_FUSE
+	bool "fuse"
+	help
+	  FUSE support.
 
 endmenu
 

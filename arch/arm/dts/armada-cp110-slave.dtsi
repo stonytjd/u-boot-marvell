@@ -61,6 +61,32 @@
 			interrupt-parent = <&gic>;
 			ranges = <0x0 0x0 0xf4000000 0x2000000>;
 
+			cps_mdio: mdio@12a200 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "marvell,orion-mdio";
+				reg = <0x12a200 0x10>;
+				mdio-name = "cp1_mdio";
+				status = "disabled";
+			};
+
+			cps_xmdio: mdio@12a600 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "marvell,xmdio";
+				reg = <0x12a600 0x200>;
+				mdio-name = "cp1_xmdio";
+				status = "disabled";
+			};
+
+			sar-reg {
+				compatible = "marvell,sample-at-reset-common", "marvell,sample-at-reset-cp110";
+				reg = <0x400200 0x8>;
+				sar-driver = "cp110_sar";
+				sar-name = "cp1_sar";
+				status = "okay";
+			};
+
 			cps_syscon0: system-controller@440000 {
 				compatible = "marvell,cp110-system-controller0",
 					     "syscon";
@@ -79,6 +105,20 @@
 					"cps-sd-mmc", "none", "none",
 					"cps-slow-io", "cps-usb3h0", "cps-usb3h1",
 					"cps-usb3dev", "cps-eip150", "cps-eip197";
+			};
+
+			cps_ld_efuse0: efuse-2@400F00 {
+				compatible = "marvell,mvebu-fuse-ld-user";
+				reg = <0x400008 0x4>;
+				otp-mem = <0xF2400F00>;
+				status = "disabled";
+			};
+
+			cps_ld_efuse1: efuse-3@400F00 {
+				compatible = "marvell,mvebu-fuse-ld-prop";
+				reg = <0x400008 0x4>;
+				otp-mem = <0xF2400F00>;
+				status = "disabled";
 			};
 
 			cps_pinctl: cps-pinctl@440000 {
@@ -100,6 +140,15 @@
 				};
 			};
 
+			thermal@400070 {
+				compatible = "marvell,mvebu-thermal", "marvell,thermal-sensor";
+				reg = <0x400070 0x12>;
+				gain = <4761>;
+				offset = <2791000>;
+				divisor = <10000>;
+				status = "okay";
+			};
+
 			cps_gpio0: gpio@440100 {
 				compatible = "marvell,orion-gpio";
 				reg = <0x440100 0x40>;
@@ -118,12 +167,18 @@
 				#gpio-cells = <2>;
 			};
 
-			cps_sata0: sata@540000 {
-				compatible = "marvell,armada-8k-ahci";
-				reg = <0x540000 0x30000>;
-				interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&cps_syscon0 1 15>;
+			cps_scsi: scsi_1 {
+				compatible = "marvell,mvebu-scsi";
+				#address-cells = <1>;
+				#size-cells = <1>;
+				max-id = <2>;
+				max-lun = <1>;
 				status = "disabled";
+				cps_sata0: sata@540000 {
+					compatible = "marvell,armada-8k-ahci";
+					reg = <0x540000 0x30000>;
+					status = "disabled";
+				};
 			};
 
 			cps_usb3_0: usb3@500000 {
@@ -217,8 +272,65 @@
 				reg = <0x580000 0x1000>,	/* utmi-unit */
 				      <0x440420 0x4>,		/* usb-cfg */
 				      <0x440440 0x4>;		/* utmi-cfg */
-				utmi-port = <UTMI_PHY_TO_USB_HOST0>;
+				utmi-port = <UTMI_PHY_TO_USB3_HOST0>;
 				status = "disabled";
+			};
+
+			cps_nand: nand@720000 {
+				compatible = "marvell,mvebu-pxa3xx-nand";
+				reg = <0x720000 0x100>;
+				#address-cells = <1>;
+
+				clocks = <&cps_syscon0 1 2>;
+				nand-enable-arbiter;
+				num-cs = <1>;
+				nand-ecc-strength = <4>;
+				nand-ecc-step-size = <512>;
+				status = "disabled";
+			};
+
+			cps_rtc: rtc-reg@284000 {
+				compatible = "marvell,real-time-clock";
+				reg = <0x284000 104>;
+				status = "disabled";
+			};
+
+			cps_mci1: mci1 {
+				compatible = "marvell,mvebu-mci";
+				reg = <0x1c3000 0x5>;
+				unit_id = <1>;
+				phy_unit_cp;
+				status = "okay";
+			};
+
+			cps_ethernet: ethernet@0 {
+				compatible = "marvell,armada-7k-pp22";
+				reg = <0x0 0x100000>, <0x129000 0xb000>;
+				clocks = <&cps_syscon0 1 3>, <&cps_syscon0 1 9>, <&cps_syscon0 1 5>;
+				clock-names = "pp_clk", "gop_clk", "mg_clk";
+				status = "disabled";
+				dma-coherent;
+
+				cps_eth0: eth0 {
+					interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+					port-id = <0>;
+					gop-port-id = <0>;
+					status = "disabled";
+				};
+
+				cps_eth1: eth1 {
+					interrupts = <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH>;
+					port-id = <1>;
+					gop-port-id = <2>;
+					status = "disabled";
+				};
+
+				cps_eth2: eth2 {
+					interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
+					port-id = <2>;
+					gop-port-id = <3>;
+					status = "disabled";
+				};
 			};
 		};
 

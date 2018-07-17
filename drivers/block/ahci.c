@@ -479,7 +479,7 @@ static int ahci_init_one(pci_dev_t dev)
 		pci_write_config_byte(dev, 0x41, 0xa1);
 #endif
 #else
-	struct scsi_platdata *plat = dev_get_platdata(dev);
+	struct scsi_platdata *plat = dev_get_uclass_platdata(dev);
 	probe_ent->mmio_base = (void *)plat->base;
 #endif
 
@@ -1023,6 +1023,7 @@ int ahci_init(void __iomem *base)
 	probe_ent->udma_mask = 0x7f;	/*Fixme,assume to support UDMA6 */
 
 	probe_ent->mmio_base = base;
+	curr_ctrl_base = base;
 
 	/* initialize adapter */
 	rc = ahci_host_init(probe_ent);
