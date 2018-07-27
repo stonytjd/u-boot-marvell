@@ -68,7 +68,12 @@
 						"$gatewayip:$netmask:$hostname"\
 						":$netdev:none nfsroot="\
 						"$serverip:$rootpath " \
+					"uboot_name=flash-image.bin\0"	\
+					"bootimg=boot.img\0"	\
+					"recoveryimg=boot.img\0"	\
+					"flash_uboot=bubt images/$uboot_name spi \0"	\
 						"$extra_params"
+
 #define CONFIG_BOOTCOMMAND	"run get_images; run set_bootargs; " \
 				"booti $kernel_addr $ramfs_addr $fdt_addr"
 #define CONFIG_ENV_OVERWRITE	/* ethaddr can be reprogrammed */

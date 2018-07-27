@@ -1,0 +1,222 @@
+/*
+ * Device Tree file for Marvell Armada 3720 community board
+ * (ESPRESSOBin)
+ * Copyright (C) 2016 Marvell
+ *
+ * Gregory CLEMENT <gregory.clement@free-electrons.com>
+ * Konstantin Porotchkin <kostap@marvell.com>
+ *
+ * This file is dual-licensed: you can use it either under the terms
+ * of the GPL or the X11 license, at your option. Note that this dual
+ * licensing only applies to this file, and not this project as a
+ * whole.
+ *
+ *  a) This file is free software; you can redistribute it and/or
+ *     modify it under the terms of the GNU General Public License as
+ *     published by the Free Software Foundation; either version 2 of the
+ *     License, or (at your option) any later version.
+ *
+ *     This file is distributed in the hope that it will be useful
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ * Or, alternatively
+ *
+ *  b) Permission is hereby granted, free of charge, to any person
+ *     obtaining a copy of this software and associated documentation
+ *     files (the "Software"), to deal in the Software without
+ *     restriction, including without limitation the rights to use
+ *     copy, modify, merge, publish, distribute, sublicense, and/or
+ *     sell copies of the Software, and to permit persons to whom the
+ *     Software is furnished to do so, subject to the following
+ *     conditions:
+ *
+ *     The above copyright notice and this permission notice shall be
+ *     included in all copies or substantial portions of the Software.
+ *
+ *     THE SOFTWARE IS PROVIDED , WITHOUT WARRANTY OF ANY KIND
+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ *     OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+/dts-v1/;
+
+#include "armada-37xx.dtsi"
+
+/ {
+    model = "Marvell Armada 3720 Community Board Interposer";
+    compatible = "marvell,armada-3720-interposer", "marvell,armada3720", "marvell,armada3710";
+
+    chosen {
+        stdout-path = "serial0:115200n8";
+    };
+
+    aliases {
+        ethernet0 = &eth0;
+        i2c0 = &i2c0;
+        spi0 = &spi0;
+    };
+
+    memory {
+        device_type = "memory";
+        reg = <0x00000000 0x00000000 0x00000000 0x20000000>;
+    };
+    regulator_sata_power: sata-power-regulator {
+        compatible = "regulator-fixed";
+        regulator-name = "sata-power";
+        regulator-min-microvolt = <5000000>;
+        regulator-max-microvolt = <5000000>;
+        enable-active-high;
+        startup-delay-us = <200000>;
+        gpio = <&gpiosb 0 GPIO_ACTIVE_HIGH>;
+    };
+
+};
+
+/* CON3 */
+&sata {
+    power-supply = <&regulator_sata_power>;
+    status = "okay";
+};
+
+&sdhci1 {
+    marvell,pad-type = "fixed-1-8v";
+    bus-width = <8>;
+    status = "okay";
+};
+
+&spi0 {
+    status = "okay";
+    pinctrl-names = "default";
+    pinctrl-0 = <&spi_quad_pins>;
+
+    spi-flash@0 {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        compatible = "st,m25p128", "spi-flash";
+        reg = <0>; /* Chip select 0 */
+        spi-max-frequency = <50000000>;
+        m25p,fast-read;
+    };
+};
+
+&comphy {
+	phy0 {
+		phy-type = <COMPHY_TYPE_SGMII1>;
+		phy-speed = <COMPHY_SPEED_1_25G>;
+	};
+	phy1 {
+		phy-type = <COMPHY_TYPE_SGMII0>;
+		phy-speed = <COMPHY_SPEED_1_25G>;
+	};
+	phy2 {
+		phy-type = <COMPHY_TYPE_SATA0>;
+		phy-speed = <COMPHY_SPEED_6G>;
+	};
+};
+
+&eth0 {
+	status = "okay";
+	phy-mode = "sgmii";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+&eth1 {
+	status = "okay";
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+/* Exported on the micro USB connector CON32 through an FTDI */
+&uart0 {
+    pinctrl-names = "default";
+    pinctrl-0 = <&uart1_pins>;
+    status = "okay";
+};
+
+/* CON29 */
+&usb2 {
+    status = "okay";
+};
+
+/* CON31 */
+&usb3 {
+    status = "okay";
+};
+
+&pinctrl_nb {
+	i2c2_pins: i2c2-pins {
+		groups = "i2c2";
+		function = "gpio";
+	};
+	sdio0_pins: sdio0-pins {
+		groups = "sdio0";
+		function = "gpio";
+	};
+	pwm0_pins: pwm0-pins {
+		groups = "pwm0";
+		function = "gpio";
+	};
+	pwm1_pins: pwm1-pins {
+		groups = "pwm1";
+		function = "gpio";
+	};
+	pwm2_pins: pwm2-pins {
+		groups = "pwm2";
+		function = "gpio";
+	};
+	pwm3_pins: pwm3-pins {
+		groups = "pwm3";
+		function = "gpio";
+	};
+	spi_quad_pins: spi-quad-pins {
+		groups = "spi_quad";
+		function = "gpio";
+	};
+
+};
+&pinctrl_sb {
+    usb32_drvvbus0_pins: usb32_drvvbus0-pins {
+        groups = "usb32_drvvbus0";
+        function = "gpio";
+    };
+    usb2_drvvbus1_pins: usb2_drvvbus1-pins {
+        groups = "usb2_drvvbus1";
+        function = "gpio";
+    };
+
+    rgmii_pins: mii-pins {
+        groups = "rgmii";
+        function = "gpio";
+    };
+
+    ptp_pins: ptp-pins {
+        groups = "ptp";
+        function = "gpio";
+    };
+    ptpclk_pins: ptpclk-pins {
+        groups = "ptp_clk";
+        function = "gpio";
+    };
+    ptptrig_pins: ptptrig-pins {
+        groups = "ptp_trig";
+        function = "gpio";
+    };
+    mmicol_pins: mmicol_-pins {
+        groups = "mii_col";
+        function = "gpio";
+    };
+};
+
